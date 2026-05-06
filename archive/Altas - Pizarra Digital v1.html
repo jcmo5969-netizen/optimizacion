@@ -1,0 +1,588 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Altas · Pizarra Digital</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; }
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 13px;
+    color: #0f172a;
+    background: #f6f7f9;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  .mono { font-family: 'IBM Plex Mono', ui-monospace, monospace; }
+
+  /* ===== App layout ===== */
+  .app { display: flex; height: 100vh; width: 100vw; }
+  .main { flex: 1; display: flex; flex-direction: column; min-width: 0; height: 100vh; overflow: hidden; }
+
+  /* ===== Sidebar ===== */
+  .altas-sidebar {
+    width: 268px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    transition: width 240ms cubic-bezier(0.4, 0, 0.2, 1);
+    overflow: hidden;
+  }
+  .altas-sidebar.collapsed { width: 64px; }
+  .brand { display: flex; align-items: center; gap: 10px; padding: 18px 16px; border-bottom: 1px solid var(--border); }
+  .brand-mark {
+    width: 30px; height: 30px; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .brand-name { font-size: 15px; font-weight: 700; letter-spacing: -0.02em; }
+  .brand-sub { font-size: 10px; color: var(--text-muted); letter-spacing: 0.04em; text-transform: uppercase; font-weight: 500; }
+
+  .nav-section { padding: 14px 12px; }
+  .nav-section + .nav-section { border-top: 1px solid var(--border); }
+  .nav-bottom { margin-top: auto; padding-bottom: 0; }
+  .nav-label { font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); padding: 0 8px 8px; }
+  .nav-item {
+    display: flex; align-items: center; gap: 10px;
+    width: 100%; padding: 8px 8px; margin-bottom: 2px;
+    background: transparent; border: 0; color: inherit; cursor: pointer;
+    border-radius: 8px; text-align: left; font: inherit;
+    transition: background 120ms;
+  }
+  .nav-item:hover { background: rgba(0,0,0,0.04); }
+  .nav-icon {
+    width: 28px; height: 28px; border-radius: 7px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 160ms;
+  }
+  .nav-text { flex: 1; min-width: 0; }
+  .nav-title { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .nav-meta { font-size: 10.5px; color: var(--text-muted); margin-top: 1px; font-family: 'IBM Plex Mono', monospace; }
+  .nav-item.active .nav-meta { color: rgba(255,255,255,0.7); }
+  .nav-badges { display: flex; gap: 4px; }
+  .badge { font-size: 10px; font-weight: 600; padding: 2px 6px; border-radius: 10px; }
+  .badge-critical { background: #fee2e2; color: #b91c1c; }
+  .nav-item.active .badge-critical { background: rgba(239,68,68,0.95); color: white; }
+  .badge-dot { width: 6px; height: 6px; border-radius: 50%; background: #ef4444; position: absolute; top: 6px; right: 6px; }
+
+  .kpi-card { padding: 10px 12px; border-radius: 8px; margin-top: 6px; }
+  .kpi-row { display: flex; align-items: center; gap: 8px; padding: 5px 0; font-size: 12px; }
+  .kpi-row + .kpi-row { border-top: 1px dashed var(--border); }
+  .kpi-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+  .kpi-text { flex: 1; color: var(--text-secondary); }
+  .kpi-val { font-weight: 600; font-variant-numeric: tabular-nums; color: var(--text-primary); }
+
+  .critical-toggle {
+    display: flex; align-items: center; gap: 10px;
+    width: 100%; padding: 12px; margin: 8px 4px 12px;
+    background: #fef2f2; border: 1px solid #fecaca; border-radius: 10px;
+    cursor: pointer; font: inherit; color: #7f1d1d;
+    transition: all 200ms;
+  }
+  .critical-toggle:hover { background: #fee2e2; }
+  .critical-toggle.on {
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+    border-color: #b91c1c;
+    color: white;
+    box-shadow: 0 4px 12px -2px rgba(239, 68, 68, 0.4);
+  }
+  .crit-icon { display: flex; }
+  .crit-text { flex: 1; min-width: 0; text-align: left; }
+  .crit-title { font-size: 12px; font-weight: 600; }
+  .crit-sub { font-size: 10px; opacity: 0.8; margin-top: 1px; }
+  .crit-switch { width: 28px; height: 16px; border-radius: 10px; background: rgba(127, 29, 29, 0.2); position: relative; flex-shrink: 0; transition: background 160ms; }
+  .crit-switch.on { background: rgba(255,255,255,0.3); }
+  .crit-switch-thumb { position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 50%; background: #7f1d1d; transition: transform 200ms cubic-bezier(0.4, 0, 0.2, 1); }
+  .crit-switch.on .crit-switch-thumb { background: white; transform: translateX(12px); }
+
+  .user-card { display: flex; align-items: center; gap: 10px; padding: 14px 12px; }
+  .user-avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--accent); color: white; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 12px; }
+  .user-name { font-size: 12.5px; font-weight: 600; }
+  .user-role { font-size: 10.5px; color: var(--text-muted); }
+
+  /* ===== Top bar ===== */
+  .topbar {
+    height: 60px; flex-shrink: 0;
+    display: flex; align-items: center; gap: 16px;
+    padding: 0 28px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+  }
+  .topbar-title { font-size: 18px; font-weight: 700; letter-spacing: -0.02em; color: var(--text-primary); }
+  .topbar-sub { font-size: 11.5px; color: var(--text-muted); margin-top: 1px; font-family: 'IBM Plex Mono', monospace; }
+  .topbar-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+  .search-box { display: flex; align-items: center; gap: 8px; background: var(--kpi-bg); border: 1px solid var(--border); border-radius: 8px; padding: 7px 12px; min-width: 280px; }
+  .search-box input { border: 0; background: transparent; font: inherit; flex: 1; outline: none; color: var(--text-primary); }
+  .search-box input::placeholder { color: var(--text-muted); }
+  .topbar-btn { padding: 7px 14px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); font: inherit; font-size: 12.5px; cursor: pointer; color: var(--text-primary); display: inline-flex; align-items: center; gap: 6px; }
+  .topbar-btn:hover { background: var(--kpi-bg); }
+  .topbar-btn.primary { background: var(--accent); color: white; border-color: var(--accent); }
+  .live-dot { width: 6px; height: 6px; border-radius: 50%; background: #10b981; box-shadow: 0 0 0 3px rgba(16,185,129,0.18); animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100% { box-shadow: 0 0 0 3px rgba(16,185,129,0.18); } 50% { box-shadow: 0 0 0 5px rgba(16,185,129,0.05); } }
+
+  /* ===== Stats strip ===== */
+  .stats-strip { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; padding: 18px 28px 0; }
+  .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
+  .stat-label { font-size: 10.5px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 8px; }
+  .stat-value { font-size: 26px; font-weight: 700; letter-spacing: -0.02em; color: var(--text-primary); font-variant-numeric: tabular-nums; line-height: 1; font-family: 'IBM Plex Mono', monospace; }
+  .stat-delta { font-size: 11px; margin-top: 6px; display: inline-flex; align-items: center; gap: 4px; }
+  .stat-delta.up { color: #10b981; }
+  .stat-delta.down { color: #ef4444; }
+  .stat-delta.neutral { color: var(--text-muted); }
+  .stat-card.critical { border-color: #fecaca; background: linear-gradient(180deg, #fef2f2 0%, #fff 100%); }
+  .stat-card.critical .stat-value { color: #b91c1c; }
+
+  /* ===== Body ===== */
+  .body-scroll { flex: 1; overflow: auto; padding: 18px 28px 28px; }
+
+  /* ===== Patient table ===== */
+  .patient-table { width: 100%; }
+  .pt-head, .pt-row {
+    display: grid;
+    grid-template-columns: 70px minmax(220px, 1.6fr) 110px minmax(200px, 1.5fr) 100px minmax(280px, 1.6fr) 130px 90px 50px;
+    align-items: center;
+  }
+  .pt-head { font-size: 10.5px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); }
+  .pt-cell { padding: 10px 12px; min-width: 0; }
+  .pt-row { transition: background 120ms; }
+  .pt-row:hover { background: var(--row-hover); }
+  .pt-row.critico { background: linear-gradient(90deg, rgba(254,242,242,0.5) 0%, transparent 50%); }
+  .pt-row.critico:hover { background: linear-gradient(90deg, rgba(254,226,226,0.7) 0%, rgba(254,242,242,0.3) 50%); }
+
+  .cama-tag { display: inline-block; padding: 3px 7px; border-radius: 5px; font-size: 11px; font-weight: 600; letter-spacing: 0.02em; }
+  .pat-name-row { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .pat-avatar { width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 10.5px; font-weight: 600; letter-spacing: 0.02em; }
+  .pat-info { min-width: 0; flex: 1; }
+  .pat-name { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing: -0.005em; }
+  .pat-meta { font-size: 10.5px; color: var(--text-muted); margin-top: 1px; }
+  .dx-text { font-size: 12px; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .estadia-flag { display: inline-block; margin-left: 4px; padding: 1px 5px; background: #fee2e2; color: #b91c1c; border-radius: 4px; font-size: 9.5px; font-weight: 600; letter-spacing: 0.02em; }
+
+  .vitals-row { display: flex; gap: 4px; flex-wrap: wrap; }
+  .vital-chip { display: inline-flex; align-items: center; gap: 4px; padding: 2px 6px; background: var(--kpi-bg); border: 1px solid var(--border); border-radius: 5px; font-size: 10.5px; }
+  .vital-chip .vital-label { color: var(--text-muted); font-weight: 500; }
+  .vital-chip .vital-value { font-weight: 600; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+  .vital-chip.alert { background: #fef2f2; border-color: #fecaca; }
+  .vital-chip.alert .vital-label { color: #b91c1c; }
+  .vital-chip.alert .vital-value { color: #b91c1c; }
+
+  .task-pips { display: flex; gap: 2px; }
+  .task-pip { width: 10px; height: 4px; border-radius: 2px; background: #e5e7eb; }
+  .task-pip.completo { background: #10b981; }
+  .task-pip.pendiente.crit { background: #ef4444; }
+  .task-pip.pendiente { background: #cbd5e1; }
+  .task-critical-pill { display: inline-flex; align-items: center; gap: 4px; font-size: 9.5px; font-weight: 600; color: #b91c1c; background: #fee2e2; padding: 1px 5px; border-radius: 4px; letter-spacing: 0.02em; }
+
+  /* ===== Critical mode ===== */
+  .pt-row.dimmed { opacity: 0.32; filter: saturate(0.4); }
+  .critical-overlay-active .topbar { background: linear-gradient(180deg, #fef2f2 0%, var(--surface) 100%); }
+  .critical-overlay-active::before {
+    content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 1;
+    box-shadow: inset 0 0 0 4px rgba(239, 68, 68, 0.6), inset 0 0 60px rgba(239, 68, 68, 0.1);
+    animation: criticalPulse 3s ease-in-out infinite;
+  }
+  @keyframes criticalPulse { 0%,100% { box-shadow: inset 0 0 0 4px rgba(239,68,68,0.5), inset 0 0 60px rgba(239,68,68,0.08); } 50% { box-shadow: inset 0 0 0 4px rgba(239,68,68,0.85), inset 0 0 80px rgba(239,68,68,0.15); } }
+  .critical-banner {
+    background: linear-gradient(90deg, #dc2626 0%, #991b1b 100%);
+    color: white; padding: 10px 28px; display: flex; align-items: center; gap: 14px;
+    font-size: 12.5px; font-weight: 500;
+    border-bottom: 1px solid #7f1d1d;
+  }
+  .critical-banner .crit-pulse { width: 8px; height: 8px; background: white; border-radius: 50%; animation: pulse-white 1.4s ease-in-out infinite; }
+  @keyframes pulse-white { 0%,100% { opacity: 1; box-shadow: 0 0 0 0 rgba(255,255,255,0.7); } 50% { opacity: 0.7; box-shadow: 0 0 0 8px rgba(255,255,255,0); } }
+  .critical-banner-stats { display: flex; gap: 24px; margin-left: auto; font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; }
+  .critical-banner-stats span { opacity: 0.85; }
+  .critical-banner-stats b { font-weight: 600; opacity: 1; }
+
+  /* ===== Modal ===== */
+  .modal-overlay {
+    position: fixed; inset: 0; z-index: 100;
+    background: rgba(15, 23, 42, 0.5); backdrop-filter: blur(8px);
+    display: flex; align-items: center; justify-content: center; padding: 40px;
+    animation: fadeIn 200ms ease-out;
+  }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  .modal-card {
+    width: 100%; max-width: 920px; max-height: 90vh;
+    border-radius: 14px;
+    display: flex; flex-direction: column;
+    box-shadow: 0 20px 60px -10px rgba(0,0,0,0.3);
+    animation: modalIn 240ms cubic-bezier(0.16, 1, 0.3, 1);
+    overflow: hidden;
+  }
+  @keyframes modalIn { from { opacity: 0; transform: translateY(12px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+  .modal-header { padding: 22px 28px; display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+  .modal-header-left { display: flex; gap: 14px; }
+  .modal-avatar { width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 14px; flex-shrink: 0; }
+  .critical-pill { background: #ef4444; color: white; padding: 3px 8px; border-radius: 5px; font-size: 10.5px; font-weight: 600; letter-spacing: 0.04em; font-family: 'IBM Plex Mono', monospace; }
+  .modal-close { background: var(--kpi-bg); border: 1px solid var(--border); border-radius: 8px; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--text-muted); }
+  .modal-close:hover { background: #f1f5f9; color: var(--text-primary); }
+  .modal-tabs { display: flex; gap: 4px; padding: 0 28px; }
+  .modal-tab { background: transparent; border: 0; padding: 12px 14px; font: inherit; font-size: 13px; font-weight: 500; cursor: pointer; }
+  .modal-tab.active { font-weight: 600; }
+  .modal-body { flex: 1; overflow: auto; padding: 24px 28px; }
+  .modal-grid { display: grid; grid-template-columns: 1.4fr 1fr; gap: 20px; }
+  .modal-grid > section:nth-child(3) { grid-column: 1 / -1; }
+  .modal-stack { display: flex; flex-direction: column; gap: 20px; }
+  .modal-section { background: var(--kpi-bg); border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; }
+  .modal-section.blocker-section { background: linear-gradient(135deg, #fef2f2 0%, #fff5f5 100%); border-color: #fecaca; }
+  .modal-section-title { margin: 0 0 12px; font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); }
+  .modal-meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 16px; margin-top: 16px; }
+  .modal-meta-grid > div { display: flex; flex-direction: column; gap: 2px; }
+  .meta-lbl { font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); font-weight: 500; }
+  .meta-val { font-size: 13px; color: var(--text-primary); font-weight: 500; }
+
+  .vitals-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+  .vital-block { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 10px 8px; text-align: center; }
+  .vital-block.alert { background: #fef2f2; border-color: #fecaca; }
+  .vital-block.alert .vb-value { color: #b91c1c; }
+  .vb-label { font-size: 10px; color: var(--text-muted); font-weight: 500; }
+  .vb-value { font-size: 22px; font-weight: 700; line-height: 1.2; letter-spacing: -0.02em; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+  .vb-unit { font-size: 9.5px; color: var(--text-muted); font-family: 'IBM Plex Mono', monospace; }
+
+  .prob-large { display: flex; align-items: center; gap: 18px; }
+  .prob-headline { font-size: 16px; font-weight: 600; letter-spacing: -0.01em; color: var(--text-primary); }
+  .prob-sub { font-size: 11px; color: var(--text-muted); margin-top: 4px; letter-spacing: 0.02em; }
+
+  .exam-list, .ic-list, .task-list { display: flex; flex-direction: column; gap: 6px; }
+  .exam-row, .ic-row { display: flex; align-items: center; gap: 10px; padding: 8px 10px; background: var(--surface); border: 1px solid var(--border); border-radius: 7px; font-size: 12.5px; }
+  .exam-status.listo { color: #10b981; }
+  .exam-status.pendiente { color: #f59e0b; }
+  .exam-name { flex: 1; font-weight: 500; }
+  .exam-value { font-weight: 600; padding: 2px 6px; border-radius: 4px; background: var(--kpi-bg); font-variant-numeric: tabular-nums; }
+  .exam-value.alto { background: #fef3c7; color: #92400e; }
+  .exam-value.bajo { background: #dbeafe; color: #1e40af; }
+  .exam-date { font-size: 10.5px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+  .ic-spec { flex: 1; font-weight: 500; }
+  .ic-status { font-size: 10.5px; padding: 2px 7px; border-radius: 10px; font-weight: 600; letter-spacing: 0.02em; text-transform: uppercase; }
+  .ic-status.completo { background: #d1fae5; color: #065f46; }
+  .ic-status.pendiente { background: #fef3c7; color: #92400e; }
+  .ic-days { font-size: 10.5px; color: var(--text-muted); }
+  .empty-row { text-align: center; padding: 12px; color: var(--text-muted); font-size: 12px; font-style: italic; }
+
+  .task-row { display: flex; align-items: center; gap: 10px; padding: 9px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 7px; font-size: 12.5px; }
+  .task-row.completo { opacity: 0.6; }
+  .task-row.completo .task-text { text-decoration: line-through; }
+  .task-row.crit.pendiente { border-color: #fecaca; background: #fef2f2; }
+  .task-check { width: 18px; height: 18px; border-radius: 5px; border: 1.5px solid #cbd5e1; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .task-check.completo { background: #10b981; border-color: #10b981; }
+  .task-text { flex: 1; }
+  .task-crit-tag { font-size: 9.5px; font-weight: 600; padding: 1px 6px; background: #ef4444; color: white; border-radius: 4px; letter-spacing: 0.04em; }
+
+  .prediction-hero { display: flex; align-items: center; gap: 22px; padding: 8px 0; }
+  .factors { display: flex; flex-direction: column; gap: 8px; }
+  .factor-row { display: grid; grid-template-columns: 1.2fr 2fr 50px; align-items: center; gap: 12px; }
+  .factor-label { font-size: 12px; color: var(--text-secondary); }
+  .factor-bar { height: 6px; background: #e5e7eb; border-radius: 3px; overflow: hidden; position: relative; }
+  .factor-fill { height: 100%; border-radius: 3px; transition: width 600ms cubic-bezier(0.4, 0, 0.2, 1); }
+  .factor-fill.pos { background: linear-gradient(90deg, #10b981, #059669); }
+  .factor-fill.neg { background: linear-gradient(90deg, #ef4444, #dc2626); }
+  .factor-val { font-size: 11.5px; font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
+  .factor-val.pos { color: #059669; }
+  .factor-val.neg { color: #dc2626; }
+  .meta-model-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; font-size: 12px; color: var(--text-secondary); }
+  .meta-model-row + .meta-model-row { border-top: 1px dashed var(--border); }
+
+  .modal-footer { padding: 16px 28px; display: flex; justify-content: flex-end; gap: 10px; }
+  .btn-primary, .btn-secondary {
+    padding: 9px 18px; border-radius: 8px; font: inherit; font-size: 13px; font-weight: 500;
+    cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
+  }
+  .btn-primary { color: white; border: 0; }
+  .btn-secondary { background: var(--surface); border: 1px solid var(--border); color: var(--text-primary); }
+  .btn-secondary:hover { background: var(--kpi-bg); }
+
+  /* CSS variables driven by palette JS */
+  :root {
+    --surface: #ffffff;
+    --bg: #f6f7f9;
+    --kpi-bg: #f8fafc;
+    --border: #e5e7eb;
+    --border-soft: #eef0f3;
+    --text-primary: #0f172a;
+    --text-secondary: #475569;
+    --text-muted: #94a3b8;
+    --accent: #0d6e8c;
+    --row-hover: #f8fafc;
+  }
+</style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+  <script type="text/babel" src="data.jsx"></script>
+  <script type="text/babel" src="tweaks-panel.jsx"></script>
+  <script type="text/babel" src="sidebar.jsx"></script>
+  <script type="text/babel" src="patient-table.jsx"></script>
+  <script type="text/babel" src="patient-modal.jsx"></script>
+
+  <script type="text/babel">
+    const { useState, useEffect, useMemo } = React;
+
+    const PALETTES = {
+      clinical: {
+        accent: '#0d6e8c',
+        sidebarBg: '#0f1f2e',
+        sidebarFg: '#cbd5e1',
+        navActiveBg: '#1e3a5f',
+        navActiveFg: '#ffffff',
+        navIconBg: '#1e2937',
+        kpiBg: '#1a2738',
+        border: '#1e2937',
+        borderSoft: '#eef0f3',
+        surface: '#ffffff',
+        tableHeadBg: '#f8fafc',
+        textPrimary: '#0f172a',
+        textSecondary: '#475569',
+        textMuted: '#94a3b8',
+        rowHover: '#f8fafc',
+      },
+      neutral: {
+        accent: '#475569',
+        sidebarBg: '#fafbfc',
+        sidebarFg: '#334155',
+        navActiveBg: '#0f172a',
+        navActiveFg: '#ffffff',
+        navIconBg: '#f1f5f9',
+        kpiBg: '#f8fafc',
+        border: '#e5e7eb',
+        borderSoft: '#eef0f3',
+        surface: '#ffffff',
+        tableHeadBg: '#fafbfc',
+        textPrimary: '#0f172a',
+        textSecondary: '#475569',
+        textMuted: '#94a3b8',
+        rowHover: '#f8fafc',
+      },
+      warm: {
+        accent: '#b45309',
+        sidebarBg: '#fef9f3',
+        sidebarFg: '#451a03',
+        navActiveBg: '#451a03',
+        navActiveFg: '#ffffff',
+        navIconBg: '#fef3c7',
+        kpiBg: '#fefaf3',
+        border: '#fde68a',
+        borderSoft: '#fef3c7',
+        surface: '#ffffff',
+        tableHeadBg: '#fefaf3',
+        textPrimary: '#1c1917',
+        textSecondary: '#57534e',
+        textMuted: '#a8a29e',
+        rowHover: '#fefaf3',
+      },
+    };
+
+    const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+      "palette": "neutral",
+      "sidebarStyle": "expanded",
+      "density": "comfortable",
+      "aiViz": "ring"
+    }/*EDITMODE-END*/;
+
+    function applyPaletteVars(tokens) {
+      const r = document.documentElement;
+      r.style.setProperty('--surface', tokens.surface);
+      r.style.setProperty('--kpi-bg', tokens.kpiBg);
+      r.style.setProperty('--border', tokens.border);
+      r.style.setProperty('--border-soft', tokens.borderSoft);
+      r.style.setProperty('--text-primary', tokens.textPrimary);
+      r.style.setProperty('--text-secondary', tokens.textSecondary);
+      r.style.setProperty('--text-muted', tokens.textMuted);
+      r.style.setProperty('--accent', tokens.accent);
+      r.style.setProperty('--row-hover', tokens.rowHover);
+    }
+
+    function App() {
+      const [tweaks, setTweak] = useTweaks(TWEAK_DEFAULTS);
+      const [servicio, setServicio] = useState('mq1');
+      const [criticalMode, setCriticalMode] = useState(false);
+      const [selected, setSelected] = useState(null);
+      const [search, setSearch] = useState('');
+
+      const palette = tweaks.palette || 'clinical';
+      const tokens = PALETTES[palette];
+
+      useEffect(() => { applyPaletteVars(tokens); }, [palette]);
+
+      useEffect(() => {
+        document.body.classList.toggle('critical-overlay-active', criticalMode);
+      }, [criticalMode]);
+
+      const pacientesFiltrados = useMemo(() => {
+        let list = window.PACIENTES;
+        if (servicio !== 'todos') list = list.filter(p => p.servicio === servicio);
+        if (search.trim()) {
+          const q = search.toLowerCase();
+          list = list.filter(p =>
+            p.nombre.toLowerCase().includes(q) ||
+            p.rut.toLowerCase().includes(q) ||
+            p.cama.toLowerCase().includes(q) ||
+            p.diagnostico.toLowerCase().includes(q)
+          );
+        }
+        // critical mode → larga estadía (>10 días) up top, others dimmed in component
+        return [...list].sort((a, b) => b.estadia - a.estadia);
+      }, [servicio, search, criticalMode]);
+
+      const stats = useMemo(() => {
+        const list = pacientesFiltrados;
+        const ocupacion = list.length;
+        const criticos = list.filter(p => p.estadia > 10).length;
+        const altaProb = list.filter(p => p.probAlta >= 70).length;
+        const tareasPendientes = list.reduce((s, p) => s + p.tareas.filter(t => t.estado === 'pendiente').length, 0);
+        const losPromedio = list.length ? (list.reduce((s, p) => s + p.estadia, 0) / list.length).toFixed(1) : '0';
+        return { ocupacion, criticos, altaProb, tareasPendientes, losPromedio };
+      }, [pacientesFiltrados]);
+
+      const servicioActual = window.SERVICIOS.find(s => s.id === servicio);
+      const titulo = servicio === 'todos' ? 'Todos los servicios' : servicioActual?.nombre;
+      const subTitulo = servicio === 'todos'
+        ? `${pacientesFiltrados.length} pacientes activos`
+        : `${pacientesFiltrados.length}/${servicioActual?.camas} camas ocupadas · ${stats.criticos} en estadía crítica`;
+
+      return (
+        <>
+          <div className="app">
+            <Sidebar
+              servicios={window.SERVICIOS}
+              pacientes={window.PACIENTES}
+              servicioActivo={servicio}
+              onServicio={setServicio}
+              criticalMode={criticalMode}
+              onCritical={() => setCriticalMode(!criticalMode)}
+              sidebarStyle={tweaks.sidebarStyle}
+              palette={palette}
+              paletteTokens={tokens}
+            />
+
+            <div className="main">
+              <div className="topbar">
+                <div>
+                  <div className="topbar-title">{titulo}</div>
+                  <div className="topbar-sub">Pizarra Digital · {new Date().toLocaleDateString('es-CL', { weekday: 'long', day: 'numeric', month: 'long' })}</div>
+                </div>
+                <div className="topbar-right">
+                  <div className="search-box">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" style={{ color: tokens.textMuted }}>
+                      <circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/>
+                    </svg>
+                    <input placeholder="Buscar paciente, RUT, cama, diagnóstico…" value={search} onChange={e => setSearch(e.target.value)} />
+                  </div>
+                  <button className="topbar-btn">
+                    <span className="live-dot" /> En vivo
+                  </button>
+                  <button className="topbar-btn primary">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>
+                    Nuevo ingreso
+                  </button>
+                </div>
+              </div>
+
+              {criticalMode && (
+                <div className="critical-banner">
+                  <span className="crit-pulse" />
+                  <span><b>MODO CRÍTICO ACTIVADO</b> · Triage de gestión · Resaltando pacientes con estadía superior a 10 días</span>
+                  <div className="critical-banner-stats">
+                    <span><b>{stats.criticos}</b> pacientes críticos</span>
+                    <span><b>{stats.tareasPendientes}</b> tareas bloqueando alta</span>
+                  </div>
+                </div>
+              )}
+
+              <div className="stats-strip">
+                <div className="stat-card">
+                  <div className="stat-label">Ocupación</div>
+                  <div className="stat-value">{stats.ocupacion}</div>
+                  <div className="stat-delta neutral">de {servicio === 'todos' ? 66 : servicioActual?.camas} camas</div>
+                </div>
+                <div className={`stat-card ${stats.criticos > 0 ? 'critical' : ''}`}>
+                  <div className="stat-label">Estadía &gt; 10 días</div>
+                  <div className="stat-value">{stats.criticos}</div>
+                  <div className="stat-delta down">+2 vs ayer</div>
+                </div>
+                <div className="stat-card">
+                  <div className="stat-label">Alta probable 48h</div>
+                  <div className="stat-value">{stats.altaProb}</div>
+                  <div className="stat-delta up">↑ predicción XGBoost</div>
+                </div>
+                <div className="stat-card">
+                  <div className="stat-label">Tareas pendientes</div>
+                  <div className="stat-value">{stats.tareasPendientes}</div>
+                  <div className="stat-delta neutral">bloqueando alta</div>
+                </div>
+                <div className="stat-card">
+                  <div className="stat-label">LOS promedio</div>
+                  <div className="stat-value">{stats.losPromedio}<span style={{ fontSize: 14, color: tokens.textMuted, fontWeight: 500, marginLeft: 4 }}>días</span></div>
+                  <div className="stat-delta down">↑ 0.8 vs target</div>
+                </div>
+              </div>
+
+              <div className="body-scroll">
+                <PatientTable
+                  pacientes={pacientesFiltrados}
+                  density={tweaks.density}
+                  criticalMode={criticalMode}
+                  onSelect={setSelected}
+                  paletteTokens={tokens}
+                  aiViz={tweaks.aiViz}
+                />
+              </div>
+            </div>
+          </div>
+
+          {selected && (
+            <PatientModal patient={selected} onClose={() => setSelected(null)} paletteTokens={tokens} aiViz={tweaks.aiViz} />
+          )}
+
+          <TweaksPanel title="Tweaks">
+            <TweakSection label="Paleta de colores">
+              <TweakRadio value={tweaks.palette} onChange={v => setTweak('palette', v)}
+                options={[
+                  { value: 'clinical', label: 'Clinical' },
+                  { value: 'neutral', label: 'Neutral' },
+                  { value: 'warm', label: 'Warm' },
+                ]} />
+            </TweakSection>
+            <TweakSection label="Sidebar">
+              <TweakRadio value={tweaks.sidebarStyle} onChange={v => setTweak('sidebarStyle', v)}
+                options={[
+                  { value: 'expanded', label: 'Expandida' },
+                  { value: 'collapsed', label: 'Colapsada' },
+                ]} />
+            </TweakSection>
+            <TweakSection label="Densidad de tabla">
+              <TweakRadio value={tweaks.density} onChange={v => setTweak('density', v)}
+                options={[
+                  { value: 'compact', label: 'Compacta' },
+                  { value: 'comfortable', label: 'Cómoda' },
+                  { value: 'spacious', label: 'Amplia' },
+                ]} />
+            </TweakSection>
+            <TweakSection label="Visualización IA">
+              <TweakRadio value={tweaks.aiViz} onChange={v => setTweak('aiViz', v)}
+                options={[
+                  { value: 'ring', label: 'Anillo' },
+                  { value: 'bar', label: 'Barra' },
+                  { value: 'numeric', label: 'Numérico' },
+                ]} />
+            </TweakSection>
+            <TweakButton onClick={() => setSelected(window.PACIENTES[0])}>Abrir paciente ejemplo</TweakButton>
+          </TweaksPanel>
+        </>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
